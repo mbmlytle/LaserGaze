@@ -15,7 +15,7 @@ import cv2
 import time
 from landmarks import *
 from face_model import *
-from AffineTransformer import AffineTransformer
+from AffineTransformer import AffineTransformer, IrisAffineTransformer
 from EyeballDetector import EyeballDetector
 
 # Can be downloaded from https://developers.google.com/mediapipe/solutions/vision/face_landmarker
@@ -59,6 +59,7 @@ class GazeProcessor:
         """
         with FaceLandmarker.create_from_options(self.options) as landmarker:
             cap = cv2.VideoCapture(self.camera_idx)
+            cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
             width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
             height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
@@ -84,6 +85,12 @@ class GazeProcessor:
 
                     at = AffineTransformer(lms_s[BASE_LANDMARKS,:], BASE_FACE_MODEL, mp_hor_pts, mp_ver_pts, model_hor_pts, model_ver_pts)
 
+                    #IrisTransformer
+                    left_eye_iris_points = lms_s[LEFT_IRIS]
+                    right_eye_iris_points = lms_s[RIGHT_IRIS]
+                    ir = IrisAffineTransformer(left_eye_iris_points,right_eye_iris_points,width,height)
+                    #print(ir.iris_scale_factor)
+
                     indices_for_left_eye_center_detection = LEFT_IRIS + ADJACENT_LEFT_EYELID_PART
                     left_eye_iris_points = lms_s[indices_for_left_eye_center_detection, :]
                     left_eye_iris_points_in_model_space = [at.to_m2(mpp) for mpp in left_eye_iris_points]
@@ -102,14 +109,15 @@ class GazeProcessor:
                         left_gaze_vector = left_pupil - left_eyeball_center
                         left_proj_point = left_pupil + left_gaze_vector*5.0
 
+
                     if self.right_detector.center_detected:
                         right_eyeball_center = at.to_m1(self.right_detector.eye_center)
                         right_pupil = lms_s[RIGHT_PUPIL]
                         right_gaze_vector = right_pupil - right_eyeball_center
                         right_proj_point = right_pupil + right_gaze_vector*5.0
 
-                    if self.callback and (left_gaze_vector is not None or right_gaze_vector is not None):
-                        await self.callback(left_gaze_vector, right_gaze_vector)
+                    if self.callback and (left_gaze_vector is not None and right_gaze_vector is not None):
+                        await self.callback(left_gaze_vector, right_gaze_vector, left_eyeball_center, right_eyeball_center)
 
                     if self.vis_options:
                         if self.left_detector.center_detected and self.right_detector.center_detected:

@@ -25,8 +25,8 @@ import time
 class EyeballDetector:
     def __init__(self, initial_eye_center,
                  initial_eye_radius=0.02,
-                 min_confidence=0.995,
-                 reasonable_confidence=0.997,
+                 min_confidence=0.75,
+                 reasonable_confidence=0.8,
                  points_threshold=300,
                  points_history_size=400,
                  refresh_time_threshold=10000):
