@@ -17,8 +17,10 @@ from GazeProcessor import GazeProcessor
 from VisualizationOptions import VisualizationOptions
 import asyncio
 
-async def gaze_vectors_collected(left, right):
-    print(f"left: {left}, right: {right}")
+async def gaze_vectors_collected(left_vec, right_vec, left_center, right_center):
+    print(
+        f"left vector: {left_vec}, right vector: {right_vec}, left_center: {left_center}, right_center: {right_center}")
+    # print(f"left_center: {left_center[0]}")
 
 async def main():
     vo = VisualizationOptions()

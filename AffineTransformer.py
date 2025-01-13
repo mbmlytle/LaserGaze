@@ -15,6 +15,7 @@
 
 import numpy as np
 import cv2
+from dataclasses import dataclass
 
 class AffineTransformer:
     """
@@ -110,3 +111,128 @@ class AffineTransformer:
             return (m1_point_homogeneous[:3] / m1_point_homogeneous[3])
         else:
             return None
+
+
+class IrisAffineTransformer:
+    def __init__(self, left_iris, right_iris, frame_width, frame_height):
+        """
+        Initialize the transformer with iris landmarks and frame dimensions.
+
+        Args:
+            left_iris (np.array): Normalized left iris landmarks from MediaPipe
+            right_iris (np.array): Normalized right iris landmarks from MediaPipe
+            frame_width (float): Width of the frame in pixels
+            frame_height (float): Height of the frame in pixels
+        """
+        self.camera = CameraParams(frame_width, frame_height)
+
+        # Calculate depth (Z) based on iris size
+        self.left_z, self.right_z = self._get_iris_depth(
+            np.array(left_iris),
+            np.array(right_iris),
+            frame_width,
+            frame_height
+        )
+
+        # Store iris centers in normalized coordinates
+        self.left_center = self._get_iris_center(left_iris)
+        self.right_center = self._get_iris_center(right_iris)
+
+    def _get_iris_center(self, iris_points):
+        """Calculate the center point of iris from its landmarks."""
+        return np.mean(iris_points, axis=0)
+
+    def _get_iris_depth(self, left_iris, right_iris, frame_width, frame_height):
+        """
+        Calculate depth based on iris diameter in image vs known real diameter.
+        Returns depth in millimeters.
+        """
+        # Get horizontal diameter (points 0 and 2)
+        left_hor_diameter = abs(
+            (left_iris[0][0] - left_iris[2][0]) * self.camera.frame_width
+        )
+        right_hor_diameter = abs(
+            (right_iris[0][0] - right_iris[2][0]) * self.camera.frame_width
+        )
+
+        # Get vertical diameter (points 1 and 3)
+        left_ver_diameter = abs(
+            (left_iris[1][1] - left_iris[3][1]) * self.camera.frame_height
+        )
+        right_ver_diameter = abs(
+            (right_iris[1][1] - right_iris[3][1]) * self.camera.frame_height
+        )
+
+        # Calculate Z for each eye using both diameters
+        # Use the known iris diameter (11.7mm) and camera focal length
+        left_z = (
+                         (self.camera.IRIS_DIAMETER_MM / left_hor_diameter) * self.camera.fx +
+                         (self.camera.IRIS_DIAMETER_MM / left_ver_diameter) * self.camera.fy
+                 ) / 2
+
+        right_z = (
+                          (self.camera.IRIS_DIAMETER_MM / right_hor_diameter) * self.camera.fx +
+                          (self.camera.IRIS_DIAMETER_MM / right_ver_diameter) * self.camera.fy
+                  ) / 2
+
+        return left_z, right_z
+
+    def get_iris_world_coordinates(self, iris_points, is_left=True):
+        """
+        Convert normalized iris coordinates to world coordinates in millimeters.
+
+        Args:
+            iris_points (np.array): Normalized iris landmarks from MediaPipe
+            is_left (bool): Whether these points are for the left iris
+
+        Returns:
+            np.array: Array of 3D points in world coordinates (millimeters)
+        """
+        # Get Z depth for the appropriate eye
+        z = self.left_z if is_left else self.right_z
+
+        # Convert normalized coordinates to pixel coordinates
+        points_px = np.zeros_like(iris_points)
+        points_px[:, 0] = iris_points[:, 0] * self.camera.frame_width
+        points_px[:, 1] = iris_points[:, 1] * self.camera.frame_height
+
+        # Convert to world coordinates using perspective projection
+        points_world = np.zeros((len(points_px), 3))
+        for i, point in enumerate(points_px):
+            # X coordinate
+            points_world[i, 0] = (point[0] - self.camera.cx) * z / self.camera.fx
+            # Y coordinate (note the sign flip due to y-axis direction)
+            points_world[i, 1] = -(point[1] - self.camera.cy) * z / self.camera.fy
+            # Z coordinate
+            points_world[i, 2] = z
+
+        return points_world
+
+
+class CameraParams:
+    """Logitech C920 specific parameters"""
+    FOCAL_LENGTH_MM: float = 3.67
+    HORIZONTAL_FOV: float = 70.42
+    VERTICAL_FOV: float = 43.3
+    MAX_RESOLUTION: tuple = (1920, 1080)
+    IRIS_DIAMETER_MM = 11.7
+
+    def __init__(self, frame_width, frame_height):
+        self.frame_width = frame_width
+        self.frame_height = frame_height
+
+        # Calculate sensor dimensions
+        self.sensor_width = 2 * self.FOCAL_LENGTH_MM * np.tan(np.radians(self.HORIZONTAL_FOV / 2))
+        self.sensor_height = 2 * self.FOCAL_LENGTH_MM * np.tan(np.radians(self.VERTICAL_FOV / 2))
+
+        # Calculate focal length in pixels
+        self.fx = self.frame_width * self.FOCAL_LENGTH_MM / self.sensor_width
+        self.fy = self.frame_height * self.FOCAL_LENGTH_MM / self.sensor_height
+
+        # Principal point (usually at image center)
+        self.cx = self.frame_width / 2
+        self.cy = self.frame_height / 2
+
+        # Pixel size in mm
+        self.pixel_size_x = self.sensor_width / self.frame_width
+        self.pixel_size_y = self.sensor_height / self.frame_height

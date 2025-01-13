@@ -51,3 +51,7 @@ DEFAULT_RIGHT_EYE_CENTER_MODEL[1] -= 0.009
 DEFAULT_RIGHT_EYE_CENTER_MODEL[2] = 0.02
 
 DEFAULT_EYE_RADIUS = 0.02
+
+#Estimated iris size in millimeters
+#https://research.google/blog/mediapipe-iris-real-time-iris-tracking-depth-estimation/
+DEFAULT_IRIS_RADIUS = 11.7
