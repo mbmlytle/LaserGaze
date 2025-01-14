@@ -13,6 +13,7 @@
 import mediapipe as mp
 import cv2
 import time
+from GazeVectorProcessor import * 
 from landmarks import *
 from face_model import *
 from AffineTransformer import AffineTransformer, IrisAffineTransformer
@@ -45,6 +46,7 @@ class GazeProcessor:
         self.camera_idx = camera_idx
         self.callback = callback
         self.vis_options = visualization_options
+        self.gaze_processor = GazeVectorProcessor()  # Add this line
         self.left_detector = EyeballDetector(DEFAULT_LEFT_EYE_CENTER_MODEL)
         self.right_detector = EyeballDetector(DEFAULT_RIGHT_EYE_CENTER_MODEL)
         self.options = FaceLandmarkerOptions(
@@ -103,18 +105,32 @@ class GazeProcessor:
 
                     left_gaze_vector, right_gaze_vector = None, None
 
-                    if self.left_detector.center_detected: #and self.right_detector.center_detected
-                        left_eyeball_center = at.to_m1(self.left_detector.eye_center)
-                        left_pupil = lms_s[LEFT_PUPIL]
-                        left_gaze_vector = left_pupil - left_eyeball_center
-                        left_proj_point = left_pupil + left_gaze_vector*5.0
+                    # Get real world coordinates using IrisAffineTransformer
+                    ir = IrisAffineTransformer(left_eye_iris_points, right_eye_iris_points, width, height)
+                    left_iris_world = ir.get_iris_world_coordinates(left_eye_iris_points, is_left=True)
+                    right_iris_world = ir.get_iris_world_coordinates(right_eye_iris_points, is_left=False)
 
+                    # Get eye positions (using center of iris as approximation)
+                    left_eye_pos = np.mean(left_iris_world, axis=0)
+                    right_eye_pos = np.mean(right_iris_world, axis=0)
 
-                    if self.right_detector.center_detected:
-                        right_eyeball_center = at.to_m1(self.right_detector.eye_center)
-                        right_pupil = lms_s[RIGHT_PUPIL]
-                        right_gaze_vector = right_pupil - right_eyeball_center
-                        right_proj_point = right_pupil + right_gaze_vector*5.0
+                    # Get screen coordinates for each eye
+                    left_screen_pos = self.gaze_processor.process_gaze(left_iris_world, left_eye_pos)
+                    right_screen_pos = self.gaze_processor.process_gaze(right_iris_world, right_eye_pos)
+
+                    # Average the positions if both eyes have valid intersections
+                    if left_screen_pos is not None and right_screen_pos is not None:
+                        screen_x = (left_screen_pos[0] + right_screen_pos[0]) // 2
+                        screen_y = (left_screen_pos[1] + right_screen_pos[1]) // 2
+                        
+                        if self.callback:
+                            await self.callback(screen_x, screen_y, left_screen_pos, right_screen_pos)
+
+                        if self.vis_options:
+                            # Draw cursor at averaged position
+                            cv2.circle(frame, (screen_x, screen_y), 
+                                    self.vis_options.line_thickness * 2, 
+                                    self.vis_options.color, -1)
 
                     if self.callback and (left_gaze_vector is not None and right_gaze_vector is not None):
                         await self.callback(left_gaze_vector, right_gaze_vector, left_eyeball_center, right_eyeball_center)
