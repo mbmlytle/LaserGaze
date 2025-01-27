@@ -123,31 +123,40 @@ class GazeProcessor:
                         screen_x = (left_screen_pos[0] + right_screen_pos[0]) // 2
                         screen_y = (left_screen_pos[1] + right_screen_pos[1]) // 2
                         
-                        if self.callback:
-                            await self.callback(screen_x, screen_y, left_screen_pos, right_screen_pos)
+                        #if self.callback:
+                            #await self.callback(screen_x, screen_y, left_screen_pos, right_screen_pos)
 
                         if self.vis_options:
                             # Draw cursor at averaged position
                             cv2.circle(frame, (screen_x, screen_y), 
                                     self.vis_options.line_thickness * 2, 
                                     self.vis_options.color, -1)
+
+                    # if self.left_detector.center_detected: #and self.right_detector.center_detected
+                    #     left_eyeball_center = at.to_m1(self.left_detector.eye_center)
+                    #     left_pupil = lms_s[LEFT_PUPIL]
+                    #     left_gaze_vector = left_pupil - left_eyeball_center
+                    #     left_proj_point = left_pupil + left_gaze_vector*5.0
+                    #
+                    #
+                    # if self.right_detector.center_detected:
+                    #     right_eyeball_center = at.to_m1(self.right_detector.eye_center)
+                    #     right_pupil = lms_s[RIGHT_PUPIL]
+                    #     right_gaze_vector = right_pupil - right_eyeball_center
+                    #     right_proj_point = right_pupil + right_gaze_vector*5.0
+                    #
+                    # if self.callback and (left_gaze_vector is not None and right_gaze_vector is not None):
+                    #     await self.callback(left_gaze_vector, right_gaze_vector, left_eyeball_center, right_eyeball_center)
+
+
+                    # Get world coordinates for both eyes
+                    left_iris_world = ir.get_iris_world_coordinates(left_eye_iris_points, is_left=True)
+                    right_iris_world = ir.get_iris_world_coordinates(right_eye_iris_points, is_left=False)
+
+                    if self.callback:
+                        await self.callback(left_iris_world, right_iris_world)
+
                     
-                    if self.left_detector.center_detected: #and self.right_detector.center_detected
-                        left_eyeball_center = at.to_m1(self.left_detector.eye_center)
-                        left_pupil = lms_s[LEFT_PUPIL]
-                        left_gaze_vector = left_pupil - left_eyeball_center
-                        left_proj_point = left_pupil + left_gaze_vector*5.0
-
-
-                    if self.right_detector.center_detected:
-                        right_eyeball_center = at.to_m1(self.right_detector.eye_center)
-                        right_pupil = lms_s[RIGHT_PUPIL]
-                        right_gaze_vector = right_pupil - right_eyeball_center
-                        right_proj_point = right_pupil + right_gaze_vector*5.0
-
-                    if self.callback and (left_gaze_vector is not None and right_gaze_vector is not None):
-                        await self.callback(left_gaze_vector, right_gaze_vector, left_eyeball_center, right_eyeball_center)
-
                     if self.vis_options:
                         if self.left_detector.center_detected and self.right_detector.center_detected:
                             p1 = relative(left_pupil[:2], frame.shape)
