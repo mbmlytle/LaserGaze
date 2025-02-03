@@ -16,7 +16,7 @@ import time
 from GazeVectorProcessor import * 
 from landmarks import *
 from face_model import *
-from AffineTransformer import AffineTransformer, IrisAffineTransformer
+from AffineTransformer import AffineTransformer, IrisAffineTransformer, get_monitor_size
 from EyeballDetector import EyeballDetector
 
 # Can be downloaded from https://developers.google.com/mediapipe/solutions/vision/face_landmarker
@@ -46,6 +46,7 @@ class GazeProcessor:
         self.camera_idx = camera_idx
         self.callback = callback
         self.vis_options = visualization_options
+        self.monitor = get_monitor_size()  # Get monitor info at initialization
         self.gaze_processor = GazeVectorProcessor()  # Add this line
         self.left_detector = EyeballDetector(DEFAULT_LEFT_EYE_CENTER_MODEL)
         self.right_detector = EyeballDetector(DEFAULT_RIGHT_EYE_CENTER_MODEL)

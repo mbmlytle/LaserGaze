@@ -17,6 +17,8 @@ import numpy as np
 import cv2
 from dataclasses import dataclass
 
+import screeninfo
+
 class AffineTransformer:
     """
     A class to calculate and manage affine transformations between two 3D point sets.
@@ -208,6 +210,43 @@ class IrisAffineTransformer:
 
         return points_world
 
+
+    # Calculate iris centers and normal vectors
+    def get_normal_and_center(self, iris_world_coords):
+        # Get vectors across the iris
+        vector1 = iris_world_coords[2] - iris_world_coords[0]  # right - left
+        vector2 = iris_world_coords[1] - iris_world_coords[3]  # top - bottom
+
+        # Calculate normal using cross product
+        normal = np.cross(vector1, vector2)
+        normal = normal / np.linalg.norm(normal)  # normalize
+
+        # Calculate iris center
+        center = np.mean(iris_world_coords, axis=0)
+
+        return normal, center
+
+
+    # Calculate line-plane intersection at z=0
+    def get_intersection(self, normal, center):
+        # If normal[2] is 0, line is parallel to plane
+        if abs(normal[2]) < 1e-6:
+            return None
+
+        # Calculate t where line intersects z=0 plane
+        t = -center[2] / normal[2]
+
+        # Calculate intersection point
+        intersection = center + t * normal
+
+        return intersection[:2]  # return only x,y coordinates
+
+
+def get_monitor_size():
+    for m in screeninfo.get_monitors():
+        if m.is_primary:
+            primary_monitor = m
+    return primary_monitor
 
 class CameraParams:
     """Logitech C920 specific parameters"""

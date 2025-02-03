@@ -1,11 +1,6 @@
 # LaserGaze💥👀 : Real-Time Gaze Direction Estimation
 
-Most libraries for gaze estimation process frames individually. LaserGaze works differently. It’s built to work with temporal data by design and delivers more accurate and stable results for video streams.
-
-| Frame-by-Frame estimation (Park et al, 2018) |                    LaserGaze                    |
-|:-------------:|:-----------------------------------------------:|
-| ![Previous SoTA Gaze Tracking](gifs/others.gif) | ![LaserGaze Gaze Tracking](gifs/laser-gaze.gif) |
-
+# This is a fork of the original LaserGaze to use for on screen gaze tracking.
 
 
 ## Key Features ⛳

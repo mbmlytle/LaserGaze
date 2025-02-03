@@ -34,3 +34,17 @@ BASE_LANDMARKS = INTERNAL_EYES_CORNERS + OUTER_EYES_CORNERS + OUTER_HEAD_POINTS 
 
 relative = lambda landmark, shape: (int(landmark[0] * shape[1]), int(landmark[1] * shape[0]))
 relativeT = lambda landmark, shape: (int(landmark[0] * shape[1]), int(landmark[1] * shape[0]), 0)
+
+
+
+Right_Top = 469
+Right_Bottom = 471
+Right_Left = 470
+Right_Right = 472
+Left_Top = 474
+Left_Bottom = 476
+Left_Left = 475
+Left_Right = 477
+RIGHT_CROSS = [(469, 471), (470, 472)]
+LEFT_CROSS = [(474, 476), (475, 477)]
+CROSSES = [RIGHT_CROSS, LEFT_CROSS]
