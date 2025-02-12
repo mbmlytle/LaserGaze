@@ -16,7 +16,7 @@ import time
 from GazeVectorProcessor import * 
 from landmarks import *
 from face_model import *
-from AffineTransformer import AffineTransformer, IrisAffineTransformer, get_monitor_size
+from AffineTransformer import AffineTransformer, IrisAffineTransformer, get_monitor_size, monitor_transform
 from EyeballDetector import EyeballDetector
 
 # Can be downloaded from https://developers.google.com/mediapipe/solutions/vision/face_landmarker
@@ -123,14 +123,14 @@ class GazeProcessor:
                     if left_screen_pos is not None and right_screen_pos is not None:
                         screen_x = (left_screen_pos[0] + right_screen_pos[0]) // 2
                         screen_y = (left_screen_pos[1] + right_screen_pos[1]) // 2
-                        
+
                         #if self.callback:
                             #await self.callback(screen_x, screen_y, left_screen_pos, right_screen_pos)
 
                         if self.vis_options:
                             # Draw cursor at averaged position
-                            cv2.circle(frame, (screen_x, screen_y), 
-                                    self.vis_options.line_thickness * 2, 
+                            cv2.circle(frame, (screen_x, screen_y),
+                                    self.vis_options.line_thickness * 2,
                                     self.vis_options.color, -1)
 
                     if self.left_detector.center_detected: #and self.right_detector.center_detected
@@ -149,15 +149,48 @@ class GazeProcessor:
                     #if self.callback and (left_gaze_vector is not None and right_gaze_vector is not None):
                         #await self.callback(left_gaze_vector, right_gaze_vector, left_eyeball_center, right_eyeball_center)
 
-
                     # Get world coordinates for both eyes
                     left_iris_world = ir.get_iris_world_coordinates(left_eye_iris_points, is_left=True)
                     right_iris_world = ir.get_iris_world_coordinates(right_eye_iris_points, is_left=False)
 
+                    left_normal, left_center = IrisAffineTransformer.get_normal_and_center(left_iris_world)
+                    right_normal, right_center = IrisAffineTransformer.get_normal_and_center(right_iris_world)
+
+                    # Get intersection points
+                    left_intersection = IrisAffineTransformer.get_intersection(left_center, left_normal)
+                    right_intersection = IrisAffineTransformer.get_intersection(right_center, right_normal)
+
+                    # Transform intersections to monitor coordinates if they exist
+                    screen_positions = []
+                    for intersection in [left_intersection, right_intersection]:
+                        if intersection is not None:
+                            screen_pos = monitor_transform(self.monitor, intersection[0], intersection[1])
+                            screen_positions.append(screen_pos)
+                        else:
+                            screen_positions.append(None)
+
+                    left_screen_pos, right_screen_pos = screen_positions
+
+                    # If we have both positions, we can average them
+                    if left_screen_pos is not None and right_screen_pos is not None:
+                        avg_x = (left_screen_pos[0] + right_screen_pos[0]) // 2
+                        avg_y = (left_screen_pos[1] + right_screen_pos[1]) // 2
+
+                        # Clamp to screen boundaries
+                        avg_x = max(0, min(avg_x, self.monitor.width))
+                        avg_y = max(0, min(avg_y, self.monitor.height))
+
+                        if self.callback:
+                            await self.callback(
+                                left_normal, right_normal,
+                                left_screen_pos, right_screen_pos,
+                                (avg_x, avg_y)
+                            )
+
                     if self.callback:
                         await self.callback(left_iris_world, right_iris_world)
 
-                    
+
                     if self.vis_options:
                         if self.left_detector.center_detected and self.right_detector.center_detected:
                             p1 = relative(left_pupil[:2], frame.shape)

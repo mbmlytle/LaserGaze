@@ -248,6 +248,13 @@ def get_monitor_size():
             primary_monitor = m
     return primary_monitor
 
+def monitor_transform(_monitor, point_x, point_y):
+    pixel_x = ((1000 * point_x) - (_monitor.width_mm / 2)) - (_monitor.width / _monitor.width_mm)
+    pixel_y = ((1000 * point_y) - _monitor.height_mm) * (_monitor.height / _monitor.height_mm)
+    pixel_x = int(pixel_x)
+    pixel_y = int(pixel_y)
+    return pixel_x, pixel_y
+
 class CameraParams:
     """Logitech C920 specific parameters"""
     FOCAL_LENGTH_MM: float = 3.67
