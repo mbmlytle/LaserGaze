@@ -212,7 +212,8 @@ class IrisAffineTransformer:
 
 
     # Calculate iris centers and normal vectors
-    def get_normal_and_center(self, iris_world_coords):
+    @staticmethod
+    def get_normal_and_center(iris_world_coords):
         # Get vectors across the iris
         vector1 = iris_world_coords[2] - iris_world_coords[0]  # right - left
         vector2 = iris_world_coords[1] - iris_world_coords[3]  # top - bottom
@@ -228,7 +229,8 @@ class IrisAffineTransformer:
 
 
     # Calculate line-plane intersection at z=0
-    def get_intersection(self, normal, center):
+    @staticmethod
+    def get_intersection(normal, center):
         # If normal[2] is 0, line is parallel to plane
         if abs(normal[2]) < 1e-6:
             return None

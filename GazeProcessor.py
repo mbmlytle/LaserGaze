@@ -198,8 +198,8 @@ class GazeProcessor:
                     cv2.circle(self.cursor_frame, (avg_x, avg_y),
                                self.vis_options.line_thickness * 2,
                                (0, 0, 255), -1)  # Red color
-                    if self.callback:
-                        await self.callback(left_iris_world, right_iris_world)
+                    # if self.callback:
+                    #     await self.callback(left_iris_world, right_iris_world)
 
 
                     if self.vis_options:

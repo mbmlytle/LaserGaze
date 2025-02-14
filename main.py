@@ -21,9 +21,16 @@ import asyncio
 #     print(
 #         f"left vector: {left_vec}, right vector: {right_vec}, left_center: {left_center}, right_center: {right_center}")
 #     # print(f"left_center: {left_center[0]}")
-async def gaze_vectors_collected(left_world_coords, right_world_coords):
-    print(f"Left eye world coordinates (mm): {left_world_coords}")
-    print(f"Right eye world coordinates (mm): {right_world_coords}")
+# async def gaze_vectors_collected(left_world_coords, right_world_coords):
+#     print(f"Left eye world coordinates (mm): {left_world_coords}")
+#     print(f"Right eye world coordinates (mm): {right_world_coords}")
+
+async def gaze_vectors_collected(left_normal, right_normal, left_screen_pos, right_screen_pos, avg_pos):
+    print(f"Left eye normal vector: {left_normal}")
+    print(f"Right eye normal vector: {right_normal}")
+    print(f"Left screen position: {left_screen_pos}")
+    print(f"Right screen position: {right_screen_pos}")
+    print(f"Average screen position: {avg_pos}")
 
 
 async def main():
