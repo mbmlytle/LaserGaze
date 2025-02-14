@@ -55,6 +55,11 @@ class GazeProcessor:
             running_mode=VisionRunningMode.VIDEO
         )
 
+        # Create fullscreen window for gaze cursor
+        cv2.namedWindow('Gaze Display', cv2.WND_PROP_FULLSCREEN)
+        cv2.setWindowProperty('Gaze Display', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        self.cursor_frame = np.zeros((self.monitor.height, self.monitor.width, 3), dtype=np.uint8)
+
     async def start(self):
         """
         Starts the video processing loop to detect facial landmarks and calculate gaze vectors.
@@ -171,6 +176,9 @@ class GazeProcessor:
 
                     left_screen_pos, right_screen_pos = screen_positions
 
+                    # Clear cursor frame
+                    self.cursor_frame.fill(0)
+
                     # If we have both positions, we can average them
                     if left_screen_pos is not None and right_screen_pos is not None:
                         avg_x = (left_screen_pos[0] + right_screen_pos[0]) // 2
@@ -186,7 +194,10 @@ class GazeProcessor:
                                 left_screen_pos, right_screen_pos,
                                 (avg_x, avg_y)
                             )
-
+                    # Draw red dot on black background
+                    cv2.circle(self.cursor_frame, (avg_x, avg_y),
+                               self.vis_options.line_thickness * 2,
+                               (0, 0, 255), -1)  # Red color
                     if self.callback:
                         await self.callback(left_iris_world, right_iris_world)
 
@@ -205,5 +216,6 @@ class GazeProcessor:
 
 
                 cv2.imshow('LaserGaze', frame)
+                cv2.imshow('Gaze Display', self.cursor_frame)
                 if cv2.waitKey(5) & 0xFF == 27:
                     break
