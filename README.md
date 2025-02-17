@@ -9,7 +9,7 @@
 - Dynamically updates and refines gaze estimation as new video frames are processed.
 - Uses MediaPipe for cutting-edge facial feature recognition.
 
-## Getting Started ✍️
+## Getting Started ✍
 
 ### Prerequisites
 

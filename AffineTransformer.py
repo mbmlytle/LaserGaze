@@ -265,3 +265,4 @@ class CameraParams:
         # Pixel size in mm
         self.pixel_size_x = self.sensor_width / self.frame_width
         self.pixel_size_y = self.sensor_height / self.frame_height
+        #
