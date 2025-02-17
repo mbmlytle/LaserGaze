@@ -57,6 +57,7 @@ class GazeProcessor:
 
         # Create fullscreen window for gaze cursor
         cv2.namedWindow('Gaze Display', cv2.WND_PROP_FULLSCREEN)
+        cv2.moveWindow('Gaze Display', self.monitor.width, self.monitor.height)
         cv2.setWindowProperty('Gaze Display', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         self.cursor_frame = np.zeros((self.monitor.height, self.monitor.width, 3), dtype=np.uint8)
 
@@ -93,12 +94,6 @@ class GazeProcessor:
 
                     at = AffineTransformer(lms_s[BASE_LANDMARKS,:], BASE_FACE_MODEL, mp_hor_pts, mp_ver_pts, model_hor_pts, model_ver_pts)
 
-                    #IrisTransformer
-                    left_eye_iris_points = lms_s[LEFT_IRIS]
-                    right_eye_iris_points = lms_s[RIGHT_IRIS]
-                    ir = IrisAffineTransformer(left_eye_iris_points,right_eye_iris_points,width,height)
-                    #print(ir.iris_scale_factor)
-
                     indices_for_left_eye_center_detection = LEFT_IRIS + ADJACENT_LEFT_EYELID_PART
                     left_eye_iris_points = lms_s[indices_for_left_eye_center_detection, :]
                     left_eye_iris_points_in_model_space = [at.to_m2(mpp) for mpp in left_eye_iris_points]
@@ -112,17 +107,18 @@ class GazeProcessor:
                     left_gaze_vector, right_gaze_vector = None, None
 
                     # Get real world coordinates using IrisAffineTransformer
-                    ir = IrisAffineTransformer(left_eye_iris_points, right_eye_iris_points, width, height)
-                    left_iris_world = ir.get_iris_world_coordinates(left_eye_iris_points, is_left=True)
-                    right_iris_world = ir.get_iris_world_coordinates(right_eye_iris_points, is_left=False)
+                    left_eye_indices = [468, 469, 470, 471, 472]
+                    left_eye_iris_points = lms_s[left_eye_indices, :]
+                    right_eye_indices = [473, 474, 475, 476, 477]
+                    right_eye_iris_points = lms_s[right_eye_indices, :]
 
-                    # Get eye positions (using center of iris as approximation)
-                    left_eye_pos = np.mean(left_iris_world, axis=0)
-                    right_eye_pos = np.mean(right_iris_world, axis=0)
+                    l_ir = IrisAffineTransformer(left_eye_iris_points, width, height)
+                    r_ir = IrisAffineTransformer(right_eye_iris_points, width, height)
 
-                    # Get screen coordinates for each eye
-                    left_screen_pos = self.gaze_processor.process_gaze(left_iris_world, left_eye_pos)
-                    right_screen_pos = self.gaze_processor.process_gaze(right_iris_world, right_eye_pos)
+                    # Get world coordinates for both eyes
+                    left_iris_world = l_ir.get_iris_world_coordinates(left_eye_iris_points)
+                    right_iris_world = r_ir.get_iris_world_coordinates(right_eye_iris_points)
+
 
                     # Average the positions if both eyes have valid intersections
                     if left_screen_pos is not None and right_screen_pos is not None:
@@ -154,9 +150,7 @@ class GazeProcessor:
                     #if self.callback and (left_gaze_vector is not None and right_gaze_vector is not None):
                         #await self.callback(left_gaze_vector, right_gaze_vector, left_eyeball_center, right_eyeball_center)
 
-                    # Get world coordinates for both eyes
-                    left_iris_world = ir.get_iris_world_coordinates(left_eye_iris_points, is_left=True)
-                    right_iris_world = ir.get_iris_world_coordinates(right_eye_iris_points, is_left=False)
+
 
                     left_normal, left_center = IrisAffineTransformer.get_normal_and_center(left_iris_world)
                     right_normal, right_center = IrisAffineTransformer.get_normal_and_center(right_iris_world)
@@ -195,7 +189,7 @@ class GazeProcessor:
                                 (avg_x, avg_y)
                             )
                     # Draw red dot on black background
-                    cv2.circle(self.cursor_frame, (avg_x, avg_y),
+                    cv2.circle(self.cursor_frame, (self.monitor.width, self.monitor.height),
                                self.vis_options.line_thickness * 2,
                                (0, 0, 255), -1)  # Red color
                     # if self.callback:

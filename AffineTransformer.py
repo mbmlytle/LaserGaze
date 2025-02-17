@@ -116,70 +116,52 @@ class AffineTransformer:
 
 
 class IrisAffineTransformer:
-    def __init__(self, left_iris, right_iris, frame_width, frame_height):
+    def __init__(self, iris_points,  frame_width, frame_height):
         """
-        Initialize the transformer with iris landmarks and frame dimensions.
+        Transform iris model coordinates to real world coordinates in mm with assumption that iris diameter is 11.7mm.
 
         Args:
-            left_iris (np.array): Normalized left iris landmarks from MediaPipe
-            right_iris (np.array): Normalized right iris landmarks from MediaPipe
-            frame_width (float): Width of the frame in pixels
-            frame_height (float): Height of the frame in pixels
+
+            frame_width (float): Width of the camera sensor frame in pixels
+            frame_height (float): Height of the camera sensor  frame in pixels
         """
         self.camera = CameraParams(frame_width, frame_height)
 
         # Calculate depth (Z) based on iris size
-        self.left_z, self.right_z = self._get_iris_depth(
-            np.array(left_iris),
-            np.array(right_iris),
+        self.dZ_x, self.dZ_y = self._get_iris_depth(
+            np.array(iris_points),
             frame_width,
             frame_height
         )
 
-        # Store iris centers in normalized coordinates
-        self.left_center = self._get_iris_center(left_iris)
-        self.right_center = self._get_iris_center(right_iris)
+        self.iris_world_coords = self.get_iris_world_coordinates(iris_points)
+        self.normal = self.get_normal(self.iris_world_coords)
 
-    def _get_iris_center(self, iris_points):
-        """Calculate the center point of iris from its landmarks."""
-        return np.mean(iris_points, axis=0)
 
-    def _get_iris_depth(self, left_iris, right_iris, frame_width, frame_height):
+    def _get_iris_depth(self, iris_points, frame_width, frame_height):
         """
         Calculate depth based on iris diameter in image vs known real diameter.
         Returns depth in millimeters.
         """
         # Get horizontal diameter (points 0 and 2)
-        left_hor_diameter = abs(
-            (left_iris[0][0] - left_iris[2][0]) * self.camera.frame_width
-        )
-        right_hor_diameter = abs(
-            (right_iris[0][0] - right_iris[2][0]) * self.camera.frame_width
+        hor_diameter = abs(
+            (iris_points[4,0] - iris_points[2,0]) * self.camera.frame_width
         )
 
         # Get vertical diameter (points 1 and 3)
-        left_ver_diameter = abs(
-            (left_iris[1][1] - left_iris[3][1]) * self.camera.frame_height
-        )
-        right_ver_diameter = abs(
-            (right_iris[1][1] - right_iris[3][1]) * self.camera.frame_height
+        ver_diameter = abs(
+            (iris_points[3,1] - iris_points[1,1]) * self.camera.frame_height
         )
 
-        # Calculate Z for each eye using both diameters
         # Use the known iris diameter (11.7mm) and camera focal length
-        left_z = (
-                         (self.camera.IRIS_DIAMETER_MM / left_hor_diameter) * self.camera.fx +
-                         (self.camera.IRIS_DIAMETER_MM / left_ver_diameter) * self.camera.fy
-                 ) / 2
 
-        right_z = (
-                          (self.camera.IRIS_DIAMETER_MM / right_hor_diameter) * self.camera.fx +
-                          (self.camera.IRIS_DIAMETER_MM / right_ver_diameter) * self.camera.fy
-                  ) / 2
+        dZ_x =  (self.camera.IRIS_DIAMETER_MM / hor_diameter) * self.camera.fx
 
-        return left_z, right_z
+        dZ_y = (self.camera.IRIS_DIAMETER_MM / ver_diameter) * self.camera.fy
 
-    def get_iris_world_coordinates(self, iris_points, is_left=True):
+        return dZ_x, dZ_y
+
+    def get_iris_world_coordinates(self, iris_points):
         """
         Convert normalized iris coordinates to world coordinates in millimeters.
 
@@ -190,72 +172,71 @@ class IrisAffineTransformer:
         Returns:
             np.array: Array of 3D points in world coordinates (millimeters)
         """
-        # Get Z depth for the appropriate eye
-        z = self.left_z if is_left else self.right_z
 
-        # Convert normalized coordinates to pixel coordinates
-        points_px = np.zeros_like(iris_points)
-        points_px[:, 0] = iris_points[:, 0] * self.camera.frame_width
-        points_px[:, 1] = iris_points[:, 1] * self.camera.frame_height
-
-        # Convert to world coordinates using perspective projection
-        points_world = np.zeros((len(points_px), 3))
-        for i, point in enumerate(points_px):
-            # X coordinate
-            points_world[i, 0] = (point[0] - self.camera.cx) * z / self.camera.fx
-            # Y coordinate (note the sign flip due to y-axis direction)
-            points_world[i, 1] = -(point[1] - self.camera.cy) * z / self.camera.fy
-            # Z coordinate
-            points_world[i, 2] = z
+        points_world = np.zeros((len(iris_points), 3))
+        points_world[:, 0] = (iris_points[:, 0] * self.dZ_x ) / self.camera.fx
+        points_world[:, 1] = (iris_points[:, 1] * self.dZ_y ) / self.camera.fy
+        dZ = (self.dZ_x + self.dZ_y ) / 2
+        points_world[:, 2] = iris_points[:, 2] * (dZ / iris_points[0, 2])
 
         return points_world
 
+class ScreenAffineTransformer:
+    def __init__(self, iris_world_points):
+        self._primary_monitor = self.get_monitor_size()
+        self._normal = self.get_normal(iris_world_points)
+        self._zplane_points = self.get_z_intersect(self._normal, iris_world_points)
 
-    # Calculate iris centers and normal vectors
-    @staticmethod
-    def get_normal_and_center(iris_world_coords):
+    def get_monitor_size(self):
+        """
+        Returns primary monitor object with screeninfo package.
+        Necessary for multi-monitor setups.
+        """
+        monitors = screeninfo.get_monitors()
+        primary_monitor = monitors[0]
+
+        for m in screeninfo.get_monitors():
+            if m.is_primary:
+                primary_monitor = m
+        return primary_monitor
+
+    def get_normal(self, iris_world_points):
+        """
+        Returns eyeball normal vector.
+        """
         # Get vectors across the iris
-        vector1 = iris_world_coords[2] - iris_world_coords[0]  # right - left
-        vector2 = iris_world_coords[1] - iris_world_coords[3]  # top - bottom
+        vec_right_left = iris_world_points[4] - iris_world_points[2]  # right -> left
+        vec_bottom_top = iris_world_points[3] - iris_world_points[1]  # bottom -> top
 
         # Calculate normal using cross product
-        normal = np.cross(vector1, vector2)
-        normal = normal / np.linalg.norm(normal)  # normalize
+        normal = np.cross(vec_right_left, vec_bottom_top)
+        #normal = normal / np.linalg.norm(normal)  # normalize
 
-        # Calculate iris center
-        center = np.mean(iris_world_coords, axis=0)
+        return normal
 
-        return normal, center
+    def get_z_intersect(self, normal, iris_world_points):
 
+        a = normal[0]
+        b = normal[1]
+        c = normal[2]
 
-    # Calculate line-plane intersection at z=0
-    @staticmethod
-    def get_intersection(normal, center):
-        # If normal[2] is 0, line is parallel to plane
-        if abs(normal[2]) < 1e-6:
-            return None
+        x1 = iris_world_points[0,0]
+        y1 = iris_world_points[0, 1]
+        z1 = iris_world_points[0, 2]
 
-        # Calculate t where line intersects z=0 plane
-        t = -center[2] / normal[2]
+        x = x1-((a*z1)/c)
+        y = y1-((b*z1)/c)
 
-        # Calculate intersection point
-        intersection = center + t * normal
+        zplane_points = [x,y]
 
-        return intersection[:2]  # return only x,y coordinates
+        return zplane_points  # return only x,y coordinates
 
-
-def get_monitor_size():
-    for m in screeninfo.get_monitors():
-        if m.is_primary:
-            primary_monitor = m
-    return primary_monitor
-
-def monitor_transform(_monitor, point_x, point_y):
-    pixel_x = ((1000 * point_x) - (_monitor.width_mm / 2)) - (_monitor.width / _monitor.width_mm)
-    pixel_y = ((1000 * point_y) - _monitor.height_mm) * (_monitor.height / _monitor.height_mm)
-    pixel_x = int(pixel_x)
-    pixel_y = int(pixel_y)
-    return pixel_x, pixel_y
+    def monitor_transform(_monitor, point_x, point_y):
+        pixel_x = (point_x * _monitor.width / _monitor.width_mm) + (_monitor.width / 2)
+        pixel_y = ((point_y * -1 ) * (_monitor.height / _monitor.height_mm))
+        pixel_x = int(pixel_x)
+        pixel_y = int(pixel_y)
+        return pixel_x, pixel_y
 
 class CameraParams:
     """Logitech C920 specific parameters"""

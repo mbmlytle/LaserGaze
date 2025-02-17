@@ -85,7 +85,7 @@ class GazeVectorProcessor:
 
         return pixel_x, pixel_y
 
-    def process_gaze(self, iris_points_world, eye_position):
+    def process_gaze(self, iris_points_world):
         """
         Process iris points to get screen coordinates
 
@@ -100,7 +100,7 @@ class GazeVectorProcessor:
         gaze_vector = self.calculate_gaze_normal(iris_points_world)
 
         # Find intersection with monitor plane
-        intersection = self.find_plane_intersection(eye_position, gaze_vector)
+        intersection = self.find_plane_intersection(gaze_vector)
         if intersection is None:
             return None
 
